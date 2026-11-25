@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#07152b" />
+  <title>PWA Test</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <style>
+    * { box-sizing: border-box }
+    body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 20px;
+           background: #07152b; color: #fff; font: 16px/1.5 system-ui, sans-serif }
+    main { width: 100%; max-width: 380px; text-align: center }
+    img { width: 96px; height: 96px; border-radius: 22px }
+    h1 { margin: 12px 0 4px; font-size: 22px }
+    p { margin: 0 0 18px; color: #9db4d8 }
+    button { width: 100%; padding: 14px; border: 0; border-radius: 12px; background: #2f6fe4;
+             color: #fff; font-size: 16px; font-weight: 700 }
+    button:disabled { background: #25364f; color: #6f86a8 }
+    ul { list-style: none; margin: 18px 0 0; padding: 0; text-align: left; font-size: 14px }
+    li { padding: 6px 0; border-top: 1px solid #16294a; display: flex; justify-content: space-between; gap: 10px }
+    .ok { color: #6dff9b } .no { color: #ff8a8a }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/icon-192.png" alt="" />
+    <h1>PWA Test</h1>
+    <p>Ilovani telefonga o‘rnatib ko‘ramiz.</p>
+    <button id="install" disabled>O‘rnatish</button>
+    <ul id="status"></ul>
+  </main>
+
+  <script>
+    const rows = {}
+    const list = document.getElementById('status')
+    function set(name, value, ok) {
+      if (!rows[name]) {
+        rows[name] = document.createElement('li')
+        list.appendChild(rows[name])
+      }
+      rows[name].innerHTML = '<span>' + name + '</span><span class="' + (ok ? 'ok' : 'no') + '">' + value + '</span>'
+    }
+
+    const ua = navigator.userAgent
+    const inApp = /Telegram|Instagram|FBAN|FBAV|Line\//i.test(ua)
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true
+    set('HTTPS', window.isSecureContext ? 'ha' : 'yo‘q', window.isSecureContext)
+    set('Telegram/Instagram ichida', inApp ? 'HA (Chrome da oching)' : 'yo‘q', !inApp)
+    set('O‘rnatilgan holatda', standalone ? 'ha' : 'yo‘q', standalone)
+    set('Service worker', 'kutilmoqda…', false)
+    set('O‘rnatishga ruxsat', 'kutilmoqda…', false)
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        const check = () => {
+          const active = reg.active && reg.active.state === 'activated'
+          set('Service worker', active ? 'ishlayapti' : 'o‘rnatilmoqda…', active)
+        }
+        check()
+        const sw = reg.installing || reg.waiting || reg.active
+        if (sw) sw.addEventListener('statechange', check)
+      }).catch((e) => set('Service worker', 'xato: ' + e.message, false))
+    } else {
+      set('Service worker', 'qo‘llab-quvvatlanmaydi', false)
+    }
+
+    let deferred = null
+    const btn = document.getElementById('install')
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault()
+      deferred = e
+      btn.disabled = false
+      set('O‘rnatishga ruxsat', 'ha', true)
+    })
+    window.addEventListener('appinstalled', () => {
+      btn.disabled = true
+      set('O‘rnatishga ruxsat', 'o‘rnatildi', true)
+    })
+    btn.addEventListener('click', async () => {
+      if (!deferred) return
+      deferred.prompt()
+      await deferred.userChoice
+      deferred = null
+      btn.disabled = true
+    })
+    setTimeout(() => {
+      if (!deferred && !standalone) {
+        const ios = /iphone|ipad|ipod/i.test(ua)
+        set('O‘rnatishga ruxsat', ios ? 'iPhone: Ulashish → Ilova ekraniga qo‘shish' : 'kelmadi', false)
+      }
+    }, 4000)
+  </script>
+</body>
+</html>
